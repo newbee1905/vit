@@ -1,114 +1,210 @@
 import numpy as np
-
-from tqdm import tqdm, trange
-import math
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.optim import AdamW
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader
-
 from torchvision.transforms import v2
-from torchvision.transforms import transforms
-from torchvision.datasets.mnist import MNIST
+from torchvision.models import resnet18, ResNet18_Weights
 
-from einops import rearrange
+from dataset import TinyImageNet
+from train import Trainer
+from deit_trainer import DeiTTrainer
 
-from vit import ViT
-from config import ViTConfig
+from utils import parse_args, get_config, get_model, get_param_groups
 
-np.random.seed(0)
-torch.manual_seed(0)
+def set_seed(seed=0):
+	"""Sets the seed for reproducibility."""
+	np.random.seed(seed)
+	random.seed(seed)
+	torch.manual_seed(seed)
+
+	if torch.cuda.is_available():
+		torch.cuda.manual_seed(seed)
+		torch.cuda.manual_seed_all(seed) # For multi-GPU setups
+
+	torch.backends.cudnn.deterministic = True
+	torch.backends.cudnn.benchmark = False
 
 def main():
+	args = parse_args()
+	set_seed(0)
+
+	print("=" * 60)
+	print("Training Configuration:")
+	print("=" * 60)
+	for arg in vars(args):
+		print(f"{arg:20}: {getattr(args, arg)}")
+	print("=" * 60)
+
+	print(f"\nTraining {args.model.upper()} model")
+	print(f"Distillation: {'Enabled' if args.distillation else 'Disabled'}")
+	if args.distillation:
+		print(f"Teacher model: {args.teacher_model.upper()}")
+		if args.teacher_path:
+			print(f"Teacher path: {args.teacher_path}")
+		print(f"Alpha (distillation weight): {args.alpha}")
+		print(f"Temperature: {args.tau}")
+
+	if args.device == 'auto':
+		device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+	else:
+		device = torch.device(args.device)
+
+	print(f"\nUsing device: {device}")
+	if device.type == 'cuda':
+		print(f"GPU: {torch.cuda.get_device_name(device)}")
+		print(f"Memory: {torch.cuda.get_device_properties(device).total_memory / 1e9:.1f} GB")
+
 	train_transform = v2.Compose([
-		v2.ToImage(),
-		v2.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.9, 1.1)),
-		v2.RandomRotation(degrees=10),
-		v2.ToDtype(torch.float32, scale=True),
-		v2.Normalize((0.1307,), (0.3081,))
+		v2.ToImage()
+		v2.TrivialAugmentWide(),
+		v2.RandomResizedCrop(64, scale=(0.7, 1.0)),
+		v2.RandomHorizontalFlip(),
+		v2.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
+		v2.ToTensor(),
+		v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+		v2.RandomErasing(p=0.25, scale=(0.02, 0.2)),
 	])
+
 	test_transform = v2.Compose([
-		v2.ToImage(),
-		v2.ToDtype(torch.float32, scale=True),
-		v2.Normalize((0.1307,), (0.3081,))
+		v2.ToImage()
+		v2.Resize(72),
+		v2.CenterCrop(64),
+		v2.ToTensor(),
+		v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 	])
 
-	train_ds = MNIST(root='./datasets', train=True, download=True, transform=train_transform)
-	test_ds = MNIST(root='./datasets', train=False, download=True, transform=test_transform)
+	print(f"\nLoading dataset from {args.data_root}")
+	train_ds = TinyImageNet(root='./datasets', split='train', download=True, transform=train_transform)
+	val_ds = TinyImageNet(root='./datasets', split='validate', transform=val_test_transform)
+	test_ds = TinyImageNet(root='./datasets', split='test', transform=val_test_transform)
 
-	train_dl = DataLoader(train_ds, shuffle=True, batch_size=128)
-	test_dl = DataLoader(test_ds, shuffle=False, batch_size=128)
+	print(f"Train samples: {len(train_ds):,}")
+	print(f"Val samples: {len(val_ds):,}")
+	print(f"Test samples: {len(test_ds):,}")
 
-	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-	print("Using device: ", device, f"({torch.cuda.get_device_name(device)})" if torch.cuda.is_available() else "")
-	model = ViT(ViTConfig()).to(device)
+	train_dl = DataLoader(
+		train_ds, shuffle=True, batch_size=args.batch_size, 
+		num_workers=args.num_workers, pin_memory=True
+	)
+	val_dl = DataLoader(
+		val_ds, shuffle=False, batch_size=args.batch_size, 
+		num_workers=args.num_workers, pin_memory=True,
+	)
+	test_dl = DataLoader(
+		test_ds, shuffle=False, batch_size=args.batch_size, 
+		num_workers=args.num_workers, pin_memory=True,
+	)
 
-	N_EPOCHS = 15
-	LR = 0.005
+	config = get_config(args.model, args)
+	model = create_model(args.model, config).to(device)
 
-	matrix_params = list(p for p in model.blocks.parameters() if p.ndim == 2)
-	vector_params = list(p for p in model.blocks.parameters() if p.ndim != 2)
+	total_params = sum(p.numel() for p in model.parameters())
+	trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+	print(f"\nModel: {args.model.upper()}")
+	print(f"Total parameters: {total_params:,}")
+	print(f"Trainable parameters: {trainable_params:,}")
 
-	embed_params  = list(model.linear_mapper.parameters())
-	lm_head_params= list(model.mlp.parameters())
+	param_groups = get_param_groups(model, args.weight_decay)
+	if args.optimizer == 'adamw':
+		optimizer = torch.optim.AdamW(param_groups, lr=args.lr)
+	elif args.optimizer == 'adam':
+		optimizer = torch.optim.Adam(param_groups, lr=args.lr)
+	elif args.optimizer == 'sgd':
+		optimizer = torch.optim.SGD(param_groups, lr=args.lr, momentum=args.momentum)
 
-	param_groups = [
-		dict(params=matrix_params),
-		dict(params=vector_params, algorithm="lion"),
-		dict(params=embed_params, algorithm="lion"),
-		dict(params=lm_head_params, algorithm="lion", lr=LR / math.sqrt(model.d_model))
-	]
+	if args.label_smoothing > 0:
+		criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+	else:
+		criterion = nn.CrossEntropyLoss()
 
-	main_params = []
-	no_decay = []
-	for name, p in model.named_parameters():
-		if "bias" in name or "norm" in name:
-			no_decay.append(p)
+	base_scheduler = None
+	if args.scheduler == "cosineannealing":
+		base_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
+	elif args.scheduler == "reduceonplateau":
+		base_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", patience=5, factor=0.5)
+	elif args.scheduler == "onecycle":
+		base_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+			optimizer, max_lr=args.lr, steps_per_epoch=len(train_dl), epochs=args.epochs
+		)
+
+	if args.warmup_steps > 0:
+		scheduler = WarmupScheduler(optimizer, warmup_steps=args.warmup_steps, after_scheduler=base_scheduler)
+	else:
+		scheduler = base_scheduler
+
+	if args.resume:
+		print(f"\nResuming from checkpoint: {args.resume}")
+		checkpoint = torch.load(args.resume, map_location=device)
+		trainer.load_checkpoint(checkpoint)
+	
+	if args.distillation:
+		print(f"\nSetting up distillation training...")
+		
+		if args.teacher_path:
+			print(f"Loading teacher from {args.teacher_path}")
+			teacher_model = load_teacher_model(
+				args.teacher_path, 
+				args.teacher_model, 
+				args.num_classes, 
+				device
+			)
 		else:
-			main_params.append(p)
+			print("Creating pretrained teacher model")
+			teacher_config = get_config(args.teacher_model, args)
+			teacher_model = create_model(args.teacher_model, teacher_config).to(device)
+			
+			if args.teacher_model == 'resnet18':
+				teacher_model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
+				teacher_model.fc = nn.Linear(teacher_model.fc.in_features, args.num_classes)
+				teacher_model = teacher_model.to(device)
 
-	optim = AdamW([
-		{"params": main_params, "lr": LR, "weight_decay": 0.1},
-		{"params": no_decay, "lr": LR, "weight_decay": 0.0},
-	], betas=(0.9, 0.999))
-	criterion = CrossEntropyLoss()
-
-	model.train()
-	for epoch in trange(N_EPOCHS, desc="Training"):
-		train_loss = 0.0
-		for batch in tqdm(train_dl, desc=f"Epoch {epoch + 1} in training", leave=False):
-			x, y = batch
-			x, y = x.to(device), y.to(device)
-			y_hat = model(x)
-			loss = criterion(y_hat, y)
-
-			train_loss += loss.detach().cpu().item() / len(train_dl)
-
-			optimizer.zero_grad()
-			loss.backward()
-			optimizer.step()
-
-		print(f"Epoch {epoch + 1}/{N_EPOCHS} loss: {train_loss:.2f}")
-
-	model.eval()
-	with torch.no_grad():
-		correct, total = 0, 0
-		test_loss = 0.0
-		for batch in tqdm(test_dl, desc="Testing"):
-			x, y = batch
-			x, y = x.to(device), y.to(device)
-			y_hat = model(x)
-			loss = criterion(y_hat, y)
-			test_loss += loss.detach().cpu().item() / len(test_dl)
-
-			correct += torch.sum(torch.argmax(y_hat, dim=1) == y).detach().cpu().item()
-			total += len(x)
-
-		print(f"Test loss: {test_loss:.2f}")
-		print(f"Test accuracy: {correct / total * 100:.2f}%")
+				nn.init.xavier_uniform_(teacher_model.fc.weight)
+				nn.init.zeros_(teacher_model.fc.bias)
+		
+		teacher_model.eval()
+		teacher_params = sum(p.numel() for p in teacher_model.parameters())
+		print(f"Teacher parameters: {teacher_params:,}")
+		
+		trainer = DeiTTrainer(
+			model,
+			teacher_model,
+			optimizer,
+			criterion,
+			device,
+			scheduler=scheduler,
+			scheduler_type=args.scheduler,
+			alpha=args.alpha,
+			tau=args.tau
+		)
+	else:
+		print(f"\nSetting up standard training...")
+		trainer = Trainer(
+			model,
+			optimizer,
+			criterion,
+			device,
+			scheduler=scheduler,
+			scheduler_type=args.scheduler,
+		)
+	
+	print(f"\nStarting training for {args.epochs} epochs...")
+	trainer.train(
+		args.epochs, train_dl, val_dl,
+		save_path=f"{args.save_path}/{args.model}",
+		config=config,
+		args=vars(args)
+	)
+	
+	print(f"\n{'='*60}")
+	print("FINAL EVALUATION")
+	print(f"{'='*60}")
+	test_loss, test_acc = trainer.run_one_epoch(test_dl, state='eval')
+	print(f"Test Loss: {test_loss:.4f}")
+	print(f"Test Accuracy: {test_acc:.1%}")
+	print(f"Best Validation Loss: {trainer.best_val_loss:.4f}")
+	print(f"{'='*60}")
 
 if __name__ == "__main__":
 	main()
