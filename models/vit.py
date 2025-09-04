@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from einops import rearrange
 
-from utils import get_positional_embeddings
+from models.utils import get_positional_embeddings
 from layers.embeddings import patchify
 from layers.vit import ViTBlock
 

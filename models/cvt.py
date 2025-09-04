@@ -9,7 +9,6 @@ class CvT(nn.Module):
 	def __init__(self, config):
 		super().__init__()
 		self.config = config
-		self.distillation = config.distillation
 		
 		# Stage 1
 		self.stage1_embedding = ConvEmbedding(
@@ -64,9 +63,6 @@ class CvT(nn.Module):
 
 		self.norm = config.norm(config.s3_emb_dim)
 		self.head = nn.Linear(config.s3_emb_dim, config.out_d)
-		if self.distillation:
-			self.distill_head = nn.Linear(config.s3_emb_dim, config.out_d)
-
 
 	def get_stage_config(self, d_model, n_head, mlp_ratio):
 		class StageConfig:
@@ -108,8 +104,5 @@ class CvT(nn.Module):
 		# Head
 		x = x.mean(dim=1) # Average pooling
 		x = self.norm(x)
-		
-		if self.distillation:
-			return self.head(x), self.distill_head(x)
 		
 		return self.head(x)

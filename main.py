@@ -11,20 +11,8 @@ from dataset import TinyImageNet
 from train import Trainer
 from deit_trainer import DeiTTrainer
 
-from utils import parse_args, get_config, get_model, get_param_groups
-
-def set_seed(seed=0):
-	"""Sets the seed for reproducibility."""
-	np.random.seed(seed)
-	random.seed(seed)
-	torch.manual_seed(seed)
-
-	if torch.cuda.is_available():
-		torch.cuda.manual_seed(seed)
-		torch.cuda.manual_seed_all(seed) # For multi-GPU setups
-
-	torch.backends.cudnn.deterministic = True
-	torch.backends.cudnn.benchmark = False
+from utils import parse_args, get_config, get_model, get_param_groups, set_seed
+from schedulers import WarmupScheduler
 
 def main():
 	args = parse_args()
@@ -57,28 +45,28 @@ def main():
 		print(f"Memory: {torch.cuda.get_device_properties(device).total_memory / 1e9:.1f} GB")
 
 	train_transform = v2.Compose([
-		v2.ToImage()
+		v2.ToImage(),
 		v2.TrivialAugmentWide(),
 		v2.RandomResizedCrop(64, scale=(0.7, 1.0)),
 		v2.RandomHorizontalFlip(),
 		v2.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
-		v2.ToTensor(),
+		v2.ToDtype(torch.float32, scale=True),
 		v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 		v2.RandomErasing(p=0.25, scale=(0.02, 0.2)),
 	])
 
 	test_transform = v2.Compose([
-		v2.ToImage()
+		v2.ToImage(),
 		v2.Resize(72),
 		v2.CenterCrop(64),
-		v2.ToTensor(),
+		v2.ToDtype(torch.float32, scale=True),
 		v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 	])
 
 	print(f"\nLoading dataset from {args.data_root}")
 	train_ds = TinyImageNet(root='./datasets', split='train', download=True, transform=train_transform)
-	val_ds = TinyImageNet(root='./datasets', split='validate', transform=val_test_transform)
-	test_ds = TinyImageNet(root='./datasets', split='test', transform=val_test_transform)
+	val_ds = TinyImageNet(root='./datasets', split='val', transform=test_transform)
+	test_ds = TinyImageNet(root='./datasets', split='test', transform=test_transform)
 
 	print(f"Train samples: {len(train_ds):,}")
 	print(f"Val samples: {len(val_ds):,}")
@@ -98,7 +86,7 @@ def main():
 	)
 
 	config = get_config(args.model, args)
-	model = create_model(args.model, config).to(device)
+	model = get_model(args.model, config).to(device)
 
 	total_params = sum(p.numel() for p in model.parameters())
 	trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)

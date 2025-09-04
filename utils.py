@@ -1,8 +1,8 @@
+import argparse
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from einops import rearrange
 
 from torchvision.models import resnet18, ResNet18_Weights
 from models.cvt import CvT
@@ -10,19 +10,8 @@ from models.vit import ViT
 from models.coatnet import CoAtNet
 from config import ViTConfig, CoAtNetConfig, CvTConfig
 
-def get_positional_embeddings(seq_len, d_model, theta=10000.0):
-	"""Sinusoidal positional embeddings."""
-
-	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-	pos = torch.arange(seq_len, dtype=torch.float, device=device).reshape(-1, 1)
-	dim = torch.arange(d_model, dtype=torch.float, device=device).reshape(1, -1)
-	
-	div_term = theta ** (torch.div(dim, 2, rounding_mode='floor') * 2 / d_model)
-	
-	embeddings = torch.zeros(seq_len, d_model, device=device)
-	embeddings[:, 0::2] = torch.sin(pos / div_term[0, 0::2])
-	embeddings[:, 1::2] = torch.cos(pos / div_term[0, 1::2])
-	return embeddings
+import random
+import numpy as np
 
 def parse_args():
 	parser = argparse.ArgumentParser(description="Train CvT / ResNet / DeiT on TinyImageNet")
@@ -35,7 +24,7 @@ def parse_args():
 	parser.add_argument("--device", type=str, default="auto", help="Device: 'auto', 'cpu', or 'cuda'")
 
 	# Model
-	parser.add_argument("--model", type=str, default="cvt", choices=["cvt", "resnet18", "deit"], help="Model type")
+	parser.add_argument("--model", type=str, default="vit", choices=["vit", "cvt", "resnet18", "deit"], help="Model type")
 	parser.add_argument("--num-classes", type=int, default=200, help="Number of classes")
 
 	# Optimizer
@@ -50,6 +39,10 @@ def parse_args():
 		choices=["cosineannealing", "reduceonplateau", "onecycle"],
 		help="Learning rate scheduler",
   )
+	parser.add_argument(
+		"--warmup-steps", type=int, default=0,
+		help="Number of warmup steps before main scheduler kicks in"
+	)
 
 	# Training
 	parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
@@ -79,8 +72,7 @@ def get_config(model_name: str, args=None):
 	else:
 		raise ValueError(f"Unknown model {model_name}")
 
-
-def create_model(model_name: str, config=None, num_classes=200):
+def get_model(model_name: str, config=None, num_classes=200):
 	model_name = model_name.lower()
 
 	if model_name == "cvt":
@@ -116,3 +108,17 @@ def get_param_groups(model, weight_decay):
 		{"params": decay, "weight_decay": weight_decay},
 		{"params": no_decay, "weight_decay": 0.0},
 	]
+
+def set_seed(seed=0):
+	"""Sets the seed for reproducibility."""
+	np.random.seed(seed)
+	random.seed(seed)
+	torch.manual_seed(seed)
+
+	if torch.cuda.is_available():
+		torch.cuda.manual_seed(seed)
+		torch.cuda.manual_seed_all(seed) # For multi-GPU setups
+
+	torch.backends.cudnn.deterministic = True
+	torch.backends.cudnn.benchmark = False
+

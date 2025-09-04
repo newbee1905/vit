@@ -6,6 +6,8 @@ from torch.utils.data import Dataset
 from torchvision.datasets.utils import download_url
 from tqdm import tqdm
 
+from sklearn.model_selection import train_test_split
+
 class TinyImageNet(Dataset):
 	url = 'http://cs231n.stanford.edu/tiny-imagenet-200.zip'
 	filename = 'tiny-imagenet-200.zip'
