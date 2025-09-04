@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from layers.attention import MHA
-from layers.transformer import FeedForward
+from layers.transformers import FeedForward
 
 class ViTBlock(nn.Module):
 	def __init__(self, config):
