@@ -13,7 +13,7 @@ class ViTConfig:
 	n_head=16
 	n_block=4
 	# n_patch=16
-	n_patch=7
+	n_patch=8
 	out_d = 200 # TinyImageNet
 
 	norm=RMSNorm
@@ -25,7 +25,7 @@ class ViTConfig:
 	use_qk_norm=False
 
 	# chw=(3, 224, 224)
-	chw=(1, 28, 28)
+	chw=(3, 64, 64)
 
 	kernel_size=16
 	stride=16
@@ -36,7 +36,7 @@ class CoAtNetConfig:
 	num_heads=32
 
 	# chw=(3, 224, 224)
-	chw=(1, 28, 28)
+	chw=(3, 64, 64)
 
 	activation="silu"
 	norm=RMSNorm

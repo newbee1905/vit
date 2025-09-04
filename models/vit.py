@@ -18,6 +18,7 @@ class ViT(nn.Module):
 		self.n_patch = config.n_patch
 		self.n_block = config.n_block
 
+		print(self.chw)
 		assert self.chw[1] % self.n_patch == 0, "Input shape not entirely divisible by number of patch"
 		assert self.chw[2] % self.n_patch == 0, "Input shape not entirely divisible by number of patch"
 

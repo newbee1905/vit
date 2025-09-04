@@ -19,7 +19,6 @@ class ViTBlock(nn.Module):
 
 		self.ff_norm = config.norm(self.d_model)
 		self.ff = FeedForward(config)
-
 		self.ff_layer_scale = nn.Parameter(torch.ones(self.d_model) * 1e-4) if config.use_layer_scale else None
 		self.ff_dropout = nn.Dropout(config.dropout)
 

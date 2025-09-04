@@ -32,22 +32,12 @@ class FeedForward(nn.Module):
 		elif 'relu' in self.activation or 'reglu' in self.activation:
 			self.act_fn = F.relu
 
-		# TODO: checking out parallel Linear from llama
-		# fc_in can be column parallel
-		# fc_out can be row parallel
-
 		if self.activation in ('swiglu', 'geglu'):
-			# default scaling down by 2/3 since normal 
-			# d_ff is 4xd_model
-			# Should be ~2.667 scalling now
-			# based on Llama SwiGLU FeedForward
-			# https://github.com/meta-llama/llama
-			d_ff = int(2 * config.d_ff // 3)
-			self.fc_in = nn.Linear(config.d_model, d_ff * 2)
+			self.fc_in = nn.Linear(config.d_model, config.d_ff * 2)
 		else:
 			self.fc_in = nn.Linear(config.d_model, config.d_ff)
 
-		self.fc_out = nn.Linear(config.d_ff, config.d_model) # can be row parallel
+		self.fc_out = nn.Linear(config.d_ff, config.d_model)
 
 		self.dropout1 = nn.Dropout(config.dropout)
 		self.dropout2 = nn.Dropout(config.dropout)
