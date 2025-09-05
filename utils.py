@@ -25,7 +25,7 @@ def parse_args():
 
 	# Model
 	parser.add_argument("--model", type=str, default="vit", choices=["vit", "cvt", "resnet18", "deit"], help="Model type")
-	parser.add_argument("--num-classes", type=int, default=200, help="Number of classes")
+	parser.add_argument("--num-classes", type=int, default=100, help="Number of classes")
 
 	# Optimizer
 	parser.add_argument("--optimizer", type=str, default="adamw", choices=["adamw", "adam", "sgd"])
@@ -74,7 +74,7 @@ def get_config(model_name: str, args=None):
 	else:
 		raise ValueError(f"Unknown model {model_name}")
 
-def get_model(model_name: str, config=None, num_classes=200):
+def get_model(model_name: str, config=None, num_classes=100):
 	model_name = model_name.lower()
 
 	if model_name == "cvt":
