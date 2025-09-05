@@ -13,7 +13,7 @@ from utils import parse_args, get_model, get_param_groups, set_seed
 args = parse_args()
 set_seed(args.seed)
 
-writer = SummaryWriter(f"runs/{args.model}")
+writer = SummaryWriter(f"runs/resnet18")
 
 print("=" * 60)
 print("Training Teacher Model (ResNet18 on TinyImageNet)")
