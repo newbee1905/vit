@@ -4,6 +4,7 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torchvision.transforms import v2
 
+from torchvision.datasets import CIFAR100
 from dataset import TinyImageNet
 from train import Trainer
 from utils import parse_args, get_model, get_param_groups, set_seed
