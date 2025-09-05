@@ -6,8 +6,11 @@ import torch
 import torch.nn.functional as F
 
 class DeiTTrainer(Trainer):
-	def __init__(self, model, teacher_model, optimizer, criterion, device, alpha=0.5, tau=1.0):
-		super().__init__(model, optimizer, criterion, device)
+	def __init__(self, model, teacher_model, optimizer, criterion, device, scheduler=None, scheduler_type=None, writer=None, alpha=0.5, tau=1.0):
+		super().__init__(
+			model, optimizer, criterion, device,
+			scheduler=scheduler, scheduler_type=scheduler_type, writer=writer
+		)
 		self.teacher_model = teacher_model
 		self.teacher_model.eval()
 

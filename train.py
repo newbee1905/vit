@@ -1,12 +1,14 @@
 from tqdm import tqdm
 import torch
+from torch.utils.tensorboard import SummaryWriter
 
 class Trainer:
-	def __init__(self, model, optimizer, criterion, device, scheduler=None, scheduler_type=None, patience=10, min_delta=1e-4):
+	def __init__(self, model, optimizer, criterion, device, scheduler=None, scheduler_type=None, patience=10, min_delta=1e-4, writer=None):
 		self.model = model
 		self.optimizer = optimizer
 		self.criterion = criterion
 		self.device = device
+		self.writer = writer
 
 		self.scheduler = scheduler
 		self.scheduler_type = scheduler_type
@@ -74,6 +76,13 @@ class Trainer:
 				train_loss, train_acc = self.run_one_epoch(train_dl, state='train')
 				val_loss, val_acc = self.run_one_epoch(val_dl, state='eval')
 				
+				if self.writer:
+					self.writer.add_scalar('Loss/train', train_loss, epoch)
+					self.writer.add_scalar('Accuracy/train', train_acc, epoch)
+					self.writer.add_scalar('Loss/val', val_loss, epoch)
+					self.writer.add_scalar('Accuracy/val', val_acc, epoch)
+					self.writer.add_scalar('LR', self.optimizer.param_groups[0]['lr'], epoch)
+
 				if val_loss < self.best_val_loss:
 					self.best_val_loss = val_loss
 

@@ -46,6 +46,8 @@ def parse_args():
 
 	# Training
 	parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
+	parser.add_argument("--transfer-epochs", type=int, default=10, help="Number of epochs for transfer learning (head only)")
+	parser.add_argument("--finetune-epochs", type=int, default=90, help="Number of epochs for fine-tuning (full model)")
 	parser.add_argument("--batch-size", type=int, default=128, help="Batch size")
 	parser.add_argument("--num-workers", type=int, default=4, help="Number of dataloader workers")
 	parser.add_argument("--seed", type=int, default=42, help="Random seed")
@@ -121,4 +123,15 @@ def set_seed(seed=0):
 
 	torch.backends.cudnn.deterministic = True
 	torch.backends.cudnn.benchmark = False
+
+def load_teacher_model(path, model_name, num_classes, device):
+	checkpoint = torch.load(path, map_location=device)
+	config = checkpoint.get('config')
+	
+	model = get_model(model_name, config, num_classes=num_classes)
+	model.load_state_dict(checkpoint['model_state_dict'])
+	model.to(device)
+	model.eval()
+	
+	return model
 
