@@ -12,6 +12,8 @@ from utils import parse_args, get_model, get_param_groups, set_seed
 args = parse_args()
 set_seed(args.seed)
 
+writer = SummaryWriter(f"runs/{args.model}")
+
 print("=" * 60)
 print("Training Teacher Model (ResNet18 on TinyImageNet)")
 print("=" * 60)
@@ -102,6 +104,7 @@ trainer = Trainer(
 	device,
 	scheduler=scheduler,
 	scheduler_type="cosineannealing",
+	writer=writer,
 )
 
 if args.resume:

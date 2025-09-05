@@ -17,7 +17,7 @@ from utils import parse_args, get_config, get_model, get_param_groups, set_seed,
 from schedulers import WarmupScheduler
 
 args = parse_args()
-set_seed(0)
+set_seed(args.seed)
 
 writer = SummaryWriter(f"runs/{args.model}")
 
