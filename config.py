@@ -13,8 +13,8 @@ class ViTConfig:
 	n_head=16
 	n_block=4
 	# n_patch=16
-	n_patch=8
-	out_d = 200 # TinyImageNet
+	n_patch=4
+	out_d = 100
 
 	norm=RMSNorm
 	activation="swiglu"
@@ -25,7 +25,7 @@ class ViTConfig:
 	use_qk_norm=False
 
 	# chw=(3, 224, 224)
-	chw=(3, 64, 64)
+	chw=(3, 32, 32)
 
 	kernel_size=16
 	stride=16
@@ -36,7 +36,7 @@ class CoAtNetConfig:
 	num_heads=32
 
 	# chw=(3, 224, 224)
-	chw=(3, 64, 64)
+	chw=(3, 32, 32)
 
 	activation="silu"
 	norm=RMSNorm
@@ -46,9 +46,9 @@ class CoAtNetConfig:
 	out_d = 200 # TinyImageNet
 
 class CvTConfig:
-	# Based on CvT-13, adjusted for TinyImageNet
-	chw = (3, 64, 64)
-	out_d = 200 # TinyImageNet
+	# Based on CvT-13
+	chw = (3, 32, 32)
+	out_d = 100 
 	
 	# Stage 1
 	s1_emb_kernel = 7
@@ -88,5 +88,5 @@ class CvTConfig:
 
 	dropout=0.1
 	norm=RMSNorm
-	activation="gelu"
+	activation="silu"
 	use_layer_scale=False

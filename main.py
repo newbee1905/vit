@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import v2
 from torchvision.models import resnet18, ResNet18_Weights
+from torchvision.datasets import CIFAR100
 
 from dataset import TinyImageNet
 from train import Trainer
@@ -49,30 +50,28 @@ if device.type == 'cuda':
 train_transform = v2.Compose([
 	v2.ToImage(),
 	v2.TrivialAugmentWide(),
-	v2.RandomResizedCrop(64, scale=(0.7, 1.0)),
+	v2.RandomResizedCrop(32, scale=(0.7, 1.0)),
 	v2.RandomHorizontalFlip(),
 	v2.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
 	v2.ToDtype(torch.float32, scale=True),
-	v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+	v2.Normalize(mean=[0.5071, 0.4867, 0.4408], std=[0.2675, 0.2565, 0.2761]),
 	v2.RandomErasing(p=0.25, scale=(0.02, 0.2)),
 ])
 
 test_transform = v2.Compose([
 	v2.ToImage(),
-	v2.Resize(72),
-	v2.CenterCrop(64),
+	v2.Resize(32),
 	v2.ToDtype(torch.float32, scale=True),
-	v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+	v2.Normalize(mean=[0.5071, 0.4867, 0.4408], std=[0.2675, 0.2565, 0.2761]),
 ])
 
 print(f"\nLoading dataset from {args.data_root}")
-train_ds = TinyImageNet(root='./datasets', split='train', download=True, transform=train_transform)
-val_ds = TinyImageNet(root='./datasets', split='val', transform=test_transform)
-test_ds = TinyImageNet(root='./datasets', split='test', transform=test_transform)
+train_ds = CIFAR100(root='./datasets', train=True, download=True, transform=train_transform)
+val_ds = CIFAR100(root='./datasets', train=False, transform=test_transform)
 
 print(f"Train samples: {len(train_ds):,}")
 print(f"Val samples: {len(val_ds):,}")
-print(f"Test samples: {len(test_ds):,}")
+print(f"Test samples: {len(val_ds):,}")
 
 train_dl = DataLoader(
 	train_ds, shuffle=True, batch_size=args.batch_size, 
@@ -83,7 +82,7 @@ val_dl = DataLoader(
 	num_workers=args.num_workers, pin_memory=True,
 )
 test_dl = DataLoader(
-	test_ds, shuffle=False, batch_size=args.batch_size, 
+	val_ds, shuffle=False, batch_size=args.batch_size, 
 	num_workers=args.num_workers, pin_memory=True,
 )
 
