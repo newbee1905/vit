@@ -3,7 +3,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 class Trainer:
-	def __init__(self, model, optimizer, criterion, device, scheduler=None, scheduler_type=None, patience=10, min_delta=1e-4, writer=None):
+	def __init__(self, model, optimizer, criterion, device, scheduler=None, scheduler_type=None, patience=15, min_delta=1e-6, writer=None):
 		self.model = model
 		self.optimizer = optimizer
 		self.criterion = criterion
@@ -101,7 +101,7 @@ class Trainer:
 						best=(val_loss < self.best_val_loss)
 					)
 
-				if val_loss + self.min_delta < self.best_val_loss:
+				if val_loss + self.min_delta <= self.best_val_loss:
 					self.best_val_loss = val_loss
 					self.counter = 0
 				else:
