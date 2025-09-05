@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torchvision.transforms import v2
+from torch.utils.tensorboard import SummaryWriter
 
 from torchvision.datasets import CIFAR100
 from dataset import TinyImageNet
