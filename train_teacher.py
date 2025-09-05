@@ -13,7 +13,7 @@ from utils import parse_args, get_model, get_param_groups, set_seed
 args = parse_args()
 set_seed(args.seed)
 
-writer = SummaryWriter(f"runs/resnet18")
+transfer_writer = SummaryWriter(f"runs/resnet18_transfer")
 
 print("=" * 60)
 print("Training Teacher Model (ResNet18 on TinyImageNet)")
@@ -105,7 +105,7 @@ trainer = Trainer(
 	device,
 	scheduler=scheduler,
 	scheduler_type="cosineannealing",
-	writer=writer,
+	writer=transfer_writer,
 )
 
 if args.resume:
@@ -117,7 +117,7 @@ if args.transfer_epochs > 0:
 	print(f"\nStarting transfer learning for {args.transfer_epochs} epochs...")
 	trainer.train(
 		args.transfer_epochs, train_dl, val_dl,
-		save_path=f"{args.save_path}/resnet18_teacher.pt",
+		save_path=f"{args.save_path}/_resnet18_teacher.pt",
 		args=vars(args)
 	)
 
@@ -125,26 +125,31 @@ if args.transfer_epochs > 0:
 if args.finetune_epochs > 0:
 	print("\n--- Phase 2: Fine-tuning (Training Full Model) ---")
 
-	# Unfreeze all layers
+	ft_writer = SummaryWriter(f"runs/resnet18_transfer")
+
 	for param in model.parameters():
 		param.requires_grad = True
 
 	trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 	print(f"Trainable parameters (full model): {trainable_params:,}")
 
-	# New optimizer and scheduler for the full model
 	param_groups = get_param_groups(model, args.weight_decay)
 	optimizer = AdamW(param_groups, lr=args.lr)
 	scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.finetune_epochs)
 
-	# Update trainer with new optimizer and scheduler
-	trainer.optimizer = optimizer
-	trainer.scheduler = scheduler
+	finetune_trainer = Trainer(
+		model,
+		optimizer,
+		criterion,
+		device,
+		scheduler=scheduler,
+		scheduler_type="cosineannealing",
+		writer=ft_writer,
+	)
 
-	total_epochs = args.transfer_epochs + args.finetune_epochs
 	print(f"\nStarting fine-tuning for {args.finetune_epochs} epochs...")
-	trainer.train(
-		total_epochs, train_dl, val_dl,
+	finetune_trainer.train(
+		args.finetune_epochs, train_dl, val_dl,
 		save_path=f"{args.save_path}/resnet18_teacher.pt",
 		args=vars(args)
 	)

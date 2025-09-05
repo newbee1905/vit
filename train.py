@@ -101,7 +101,7 @@ class Trainer:
 						best=(val_loss < self.best_val_loss)
 					)
 
-				if val_loss + self.min_delta <= self.best_val_loss:
+				if val_loss <= self.best_val_loss - self.min_delta:
 					self.best_val_loss = val_loss
 					self.counter = 0
 				else:
