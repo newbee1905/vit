@@ -172,7 +172,7 @@ if args.resume:
 print(f"\nStarting training for {args.epochs} epochs...")
 trainer.train(
 	args.epochs, train_dl, val_dl,
-	save_path=f"{args.save_path}/{args.model}",
+	save_path=f"{args.save_path}/{args.model}.pt",
 	config=config,
 	args=vars(args)
 )
