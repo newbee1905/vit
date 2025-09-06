@@ -8,10 +8,12 @@ from torchvision.models import resnet18, ResNet18_Weights
 from models.cvt import CvT
 from models.vit import ViT
 from models.coatnet import CoAtNet
+from models.resnet import get_model as get_resnet_cifar
 from config import ViTConfig, CoAtNetConfig, CvTConfig
 
 import random
 import numpy as np
+
 
 def parse_args():
 	parser = argparse.ArgumentParser(description="Train CvT / ResNet / DeiT on TinyImageNet")
@@ -46,8 +48,8 @@ def parse_args():
 
 	# Training
 	parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
-	parser.add_argument("--transfer-epochs", type=int, default=10, help="Number of epochs for transfer learning (head only)")
-	parser.add_argument("--finetune-epochs", type=int, default=90, help="Number of epochs for fine-tuning (full model)")
+	parser.add_argument("--transfer-epochs", type=int, default=20, help="Number of epochs for transfer learning (head only)")
+	parser.add_argument("--finetune-epochs", type=int, default=80, help="Number of epochs for fine-tuning (full model)")
 	parser.add_argument("--batch-size", type=int, default=128, help="Batch size")
 	parser.add_argument("--num-workers", type=int, default=4, help="Number of dataloader workers")
 	parser.add_argument("--seed", type=int, default=42, help="Random seed")
@@ -55,7 +57,7 @@ def parse_args():
 
 	# Distillation
 	parser.add_argument("--distillation", action="store_true", help="Enable knowledge distillation")
-	parser.add_argument("--teacher-model", type=str, default="resnet18", choices=["resnet18", "cvt", "deit"])
+	parser.add_argument("--teacher-model", type=str, default="resnet20", choices=["resnet18", "resnet20", "resnet32"])
 	parser.add_argument("--teacher-path", type=str, default="", help="Path to teacher checkpoint")
 	parser.add_argument("--alpha", type=float, default=0.5, help="Weight for distillation loss")
 	parser.add_argument("--tau", type=float, default=1.0, help="Temperature for distillation")
@@ -70,6 +72,8 @@ def get_config(model_name: str, args=None):
 	elif model_name.lower() == "coatnet":
 		return CoAtNetConfig()
 	elif model_name.lower() == "resnet18":
+		return None
+	elif model_name.lower() == "resnet20":
 		return None
 	else:
 		raise ValueError(f"Unknown model {model_name}")
@@ -86,6 +90,11 @@ def get_model(model_name: str, config=None, num_classes=100):
 	elif model_name == "resnet18":
 		model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
 		model.fc = nn.Linear(model.fc.in_features, num_classes)
+
+		return model
+	elif model_name == "resnet20" or model_name == "resnet32":
+		model = get_resnet_cifar(model_name, num_classes=num_classes)
+
 		return model
 	else:
 		raise ValueError(f"Unknown model {model_name}")

@@ -13,10 +13,10 @@ from utils import parse_args, get_model, get_param_groups, set_seed
 args = parse_args()
 set_seed(args.seed)
 
-transfer_writer = SummaryWriter(f"runs/resnet18_transfer")
+transfer_writer = SummaryWriter(f"runs/resnet32_transfer")
 
 print("=" * 60)
-print("Training Teacher Model (ResNet18 on TinyImageNet)")
+print("Training Teacher Model (ResNet32 on TinyImageNet)")
 print("=" * 60)
 for arg in vars(args):
 	print(f"{arg:20}: {getattr(args, arg)}")
@@ -71,7 +71,7 @@ test_dl = DataLoader(
 	num_workers=args.num_workers, pin_memory=True,
 )
 
-model = get_model("resnet18", num_classes=args.num_classes).to(device)
+model = get_model("resnet32", num_classes=args.num_classes).to(device)
 
 # --- Phase 1: Transfer Learning (Training Classifier Head) ---
 print("\n--- Phase 1: Transfer Learning (Training Classifier Head) ---")
@@ -89,7 +89,7 @@ nn.init.zeros_(model.fc.bias)
 
 total_params = sum(p.numel() for p in model.parameters())
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print(f"\nModel: RESNET18")
+print(f"\nModel: RESNET32")
 print(f"Total parameters: {total_params:,}")
 print(f"Trainable parameters (head only): {trainable_params:,}")
 
@@ -117,7 +117,7 @@ if args.transfer_epochs > 0:
 	print(f"\nStarting transfer learning for {args.transfer_epochs} epochs...")
 	trainer.train(
 		args.transfer_epochs, train_dl, val_dl,
-		save_path=f"{args.save_path}/_resnet18_teacher.pt",
+		save_path=f"{args.save_path}/_resnet32_teacher.pt",
 		args=vars(args)
 	)
 
@@ -125,7 +125,7 @@ if args.transfer_epochs > 0:
 if args.finetune_epochs > 0:
 	print("\n--- Phase 2: Fine-tuning (Training Full Model) ---")
 
-	ft_writer = SummaryWriter(f"runs/resnet18_transfer")
+	ft_writer = SummaryWriter(f"runs/resnet32_finetune")
 
 	for param in model.parameters():
 		param.requires_grad = True
@@ -150,7 +150,7 @@ if args.finetune_epochs > 0:
 	print(f"\nStarting fine-tuning for {args.finetune_epochs} epochs...")
 	finetune_trainer.train(
 		args.finetune_epochs, train_dl, val_dl,
-		save_path=f"{args.save_path}/resnet18_teacher.pt",
+		save_path=f"{args.save_path}/resnet32_teacher.pt",
 		args=vars(args)
 	)
 
