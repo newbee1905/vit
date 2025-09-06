@@ -7,8 +7,8 @@ from layers.norm import DyT, RMSNorm
 # from dataclasses import dataclass
 
 class ViTConfig:
-	d_model=512
-	d_ff=2048
+	d_model=192
+	d_ff=768
 
 	n_head=16
 	n_block=4
@@ -19,7 +19,7 @@ class ViTConfig:
 	norm=RMSNorm
 	activation="swiglu"
 
-	dropout=0.1
+	dropout=0.3
 
 	use_layer_scale=True
 	use_qk_norm=False
@@ -41,7 +41,7 @@ class CoAtNetConfig:
 	activation="silu"
 	norm=RMSNorm
 
-	dropout=0.1
+	dropout=0.3
 
 	out_d = 200 # TinyImageNet
 
@@ -86,7 +86,7 @@ class CvTConfig:
 	s3_qkv_stride = 2
 	s3_qkv_pad = 1
 
-	dropout=0.1
+	dropout=0.3
 	norm=RMSNorm
 	activation="silu"
 	use_layer_scale=False
