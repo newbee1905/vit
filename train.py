@@ -83,23 +83,11 @@ class Trainer:
 					self.writer.add_scalar('Accuracy/val', val_acc, epoch)
 					self.writer.add_scalar('LR', self.optimizer.param_groups[0]['lr'], epoch)
 
-				if val_loss < self.best_val_loss:
-					self.best_val_loss = val_loss
-
 				if self.scheduler:
 					if self.scheduler_type == "reduceonplateau":
 						self.scheduler.step(val_loss)
 					else:
 						self.scheduler.step()
-
-				if save_path:
-					self.save_checkpoint(
-						save_path,
-						epoch=epoch,
-						config=config,
-						args=args,
-						best=(val_loss < self.best_val_loss)
-					)
 
 				if val_loss <= self.best_val_loss - self.min_delta:
 					self.best_val_loss = val_loss
@@ -119,6 +107,16 @@ class Trainer:
 					'val_acc': f'{val_acc:.3f}',
 					'best_val_loss': f'{self.best_val_loss:.4f}'
 				})
+
+				if save_path:
+					self.save_checkpoint(
+						save_path,
+						epoch=epoch,
+						config=config,
+						args=args,
+						best=(val_loss < self.best_val_loss)
+					)
+
 
 	def save_checkpoint(self, path, epoch, config=None, args=None, best=False):
 		"""Save training checkpoint."""
