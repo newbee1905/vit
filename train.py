@@ -118,7 +118,7 @@ class Trainer:
 					)
 
 
-	def save_checkpoint(self, path, epoch, config=None, args=None, best=False):
+	def save_checkpoint(self, path, epoch, config=None, args=None, best=True):
 		"""Save training checkpoint."""
 
 		checkpoint = {
