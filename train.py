@@ -89,6 +89,15 @@ class Trainer:
 					else:
 						self.scheduler.step()
 
+				if save_path:
+					self.save_checkpoint(
+						save_path,
+						epoch=epoch,
+						config=config,
+						args=args,
+						best=(val_loss <= self.best_val_loss - self.min_delta)
+					)
+
 				if val_loss <= self.best_val_loss - self.min_delta:
 					self.best_val_loss = val_loss
 					self.counter = 0
@@ -108,17 +117,7 @@ class Trainer:
 					'best_val_loss': f'{self.best_val_loss:.4f}'
 				})
 
-				if save_path:
-					self.save_checkpoint(
-						save_path,
-						epoch=epoch,
-						config=config,
-						args=args,
-						best=(val_loss < self.best_val_loss)
-					)
-
-
-	def save_checkpoint(self, path, epoch, config=None, args=None, best=True):
+	def save_checkpoint(self, path, epoch, config=None, args=None, best=False):
 		"""Save training checkpoint."""
 
 		checkpoint = {
