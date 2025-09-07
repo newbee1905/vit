@@ -126,6 +126,14 @@ class Trainer:
 			'optimizer_state_dict': self.optimizer.state_dict(),
 			'best_val_loss': self.best_val_loss,
 		}
+
+		if best:
+			best_path = path.replace(".pt", "_best.pt")
+			torch.save(checkpoint, best_path)
+			print(f"Best model updated and saved to {best_path}")
+
+			checkpoint["best_model_state_dict"] = self.model.state_dict()
+
 		if self.scheduler:
 			checkpoint['scheduler_state_dict'] = self.scheduler.state_dict()
 		if config:
@@ -134,11 +142,6 @@ class Trainer:
 			checkpoint['args'] = args
 
 		torch.save(checkpoint, path)
-
-		if best:
-			best_path = path.replace(".pt", "_best.pt")
-			torch.save(checkpoint, best_path)
-			print(f"Best model updated and saved to {best_path}")
 
 	def load_checkpoint(self, checkpoint):
 		"""Load model/optimizer state for resume."""
