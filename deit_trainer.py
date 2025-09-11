@@ -19,29 +19,34 @@ class DeiTTrainer(Trainer):
 
 		self.alpha = alpha
 		self.tau = tau
-	
+
 	def compute_loss(self, y_hat, y, x=None):
 		if isinstance(y_hat, tuple):
-			student_pred, student_distill = y_hat
+			student_pred, regularization_loss = y_hat
 		else:
 			student_pred = y_hat
-			student_distill = y_hat
-		
+			regularization_loss = 0
+
 		base_loss = self.criterion(student_pred, y)
 		
-		if x is not None:
+		if x is not None and self.teacher_model is not None:
 			with torch.no_grad():
 				teacher_pred = self.teacher_model(x)
 
 				if isinstance(teacher_pred, tuple):
 					teacher_pred = teacher_pred[0]
+			
+			distill_loss = F.kl_div(
+				F.log_softmax(student_pred / self.tau, dim=1),
+				F.softmax(teacher_pred / self.tau, dim=1),
+				reduction='batchmean'
+			) * (self.tau * self.tau)
+
+			total_loss = (1 - self.alpha) * base_loss + self.alpha * distill_loss
 		else:
-			return base_loss
+			total_loss = base_loss
 		
-		distill_loss = F.kl_div(
-			F.log_softmax(student_distill / self.tau, dim=1),
-			F.softmax(teacher_pred / self.tau, dim=1),
-			reduction='batchmean'
-		) * (self.tau * self.tau)
-		
-		return (1 - self.alpha) * base_loss + self.alpha * distill_loss
+		if isinstance(y_hat, tuple):
+			total_loss += regularization_loss
+
+		return total_loss

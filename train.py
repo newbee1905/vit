@@ -48,18 +48,7 @@ class Trainer:
 				
 				y_hat = self.model(x)
 
-				if isinstance(y_hat, tuple):
-					classification_output, regularization_loss = y_hat
-					classification_loss = self.criterion(classification_output, y)
-					loss = classification_loss + regularization_loss
-				else:
-					classification_output = y_hat
-					loss = self.criterion(classification_output, y)
-				
-				if is_training:
-					loss.backward()
-					self.optimizer.step()
-				
+				loss = self.compute_loss(y_hat, y, x)
 				total_loss += loss.detach().cpu().item()
 				
 				pred_for_acc = y_hat
@@ -73,6 +62,14 @@ class Trainer:
 		accuracy = correct / total
 		
 		return avg_loss, accuracy
+	
+	def compute_loss(self, y_hat, y, x=None):
+		if isinstance(y_hat, tuple):
+			classification_output, regularization_loss = y_hat
+			classification_loss = self.criterion(classification_output, y)
+			return classification_loss + regularization_loss
+		else:
+			return self.criterion(y_hat, y)
 	
 	def train(self, n_epochs, train_dl, val_dl, save_path=None, config=None, args=None):
 		with tqdm(range(self.start_epoch, n_epochs), desc="Training Progress") as pbar:
