@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from layers.norm import DyT, RMSNorm
+from layers.attention import MHA, QuadrangleAttention
 
 # from dataclasses import dataclass
 
@@ -16,6 +17,8 @@ class ViTConfig:
 	n_patch=4
 	out_d = 100
 
+	attention=QuadrangleAttention
+	window_size=[2, 2]
 	norm=RMSNorm
 	activation="swiglu"
 
@@ -31,9 +34,9 @@ class ViTConfig:
 	stride=16
 
 class CoAtNetConfig:
-	dims=[64, 96, 192, 384, 768]
-	depths=[2, 2, 3, 5, 2]
-	num_heads=32
+	dims=[32, 64, 128, 192, 192]
+	depths=[2, 2, 2, 2]
+	num_heads=16
 
 	# chw=(3, 224, 224)
 	chw=(3, 32, 32)
@@ -43,7 +46,10 @@ class CoAtNetConfig:
 
 	dropout=0.3
 
-	out_d = 200 # TinyImageNet
+	out_d = 100 
+
+	window_size = [2, 2]
+	use_layer_scale=True
 
 class CvTConfig:
 	# Based on CvT-13

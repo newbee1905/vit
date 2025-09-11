@@ -26,3 +26,39 @@ class ConvEmbedding(nn.Module):
 		x = self.norm(x)
 		x = rearrange(x, 'b c h w -> b (h w) c')
 		return x
+
+class PatchMerging(nn.Module):
+	"""
+	Patch Merging Layer for the Swin Transformer.
+	"""
+	def __init__(self, config):
+		super().__init__()
+
+		self.d_model = config.d_model
+		self.reduction = nn.Linear(4 * self.d_model, 2 * self.d_model, bias=False)
+		self.norm = config.norm(4 * self.d_model)
+
+	def forward(self, x, h, w):
+		bsz, seq_len, _ = x.shape
+		assert seq_len == h * w, "input feature has wrong size"
+
+		x = x.view(bsz, h, w, -1)
+
+		# Pad if H or W is not divisible by 2
+		pad_input = (h % 2 == 1) or (w % 2 == 1)
+		if pad_input:
+			x = F.pad(x, (0, 0, 0, w % 2, 0, h % 2))
+
+		# bsz h/2 w/2 -1 
+		x0 = x[:, 0::2, 0::2, :]
+		x1 = x[:, 1::2, 0::2, :]
+		x2 = x[:, 0::2, 1::2, :]
+		x3 = x[:, 1::2, 1::2, :]
+
+		x = torch.cat([x0, x1, x2, x3], -1)
+		x = x.view(B, h * w / 4, -1)
+
+		x = self.norm(x)
+		x = self.reduction(x)
+
+		return x, h // 2, w // 2

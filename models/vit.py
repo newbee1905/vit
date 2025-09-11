@@ -7,6 +7,7 @@ from einops import rearrange
 from models.utils import get_positional_embeddings
 from layers.embeddings import patchify
 from layers.vit import ViTBlock
+from layers.attention import QuadrangleAttention
 
 class ViT(nn.Module):
 	def __init__(self, config):
@@ -18,11 +19,12 @@ class ViT(nn.Module):
 		self.n_patch = config.n_patch
 		self.n_block = config.n_block
 
-		print(self.chw)
 		assert self.chw[1] % self.n_patch == 0, "Input shape not entirely divisible by number of patch"
 		assert self.chw[2] % self.n_patch == 0, "Input shape not entirely divisible by number of patch"
 
 		self.patch_size = (self.chw[1] // self.n_patch, self.chw[2] // self.n_patch)
+		self.h_grid = self.chw[1] // self.patch_size[0]
+		self.w_grid = self.chw[2] // self.patch_size[1]
 
 		self.input_d = self.chw[0] * self.patch_size[0] * self.patch_size[1]
 		self.linear_mapper = nn.Linear(self.input_d, self.d_model)
@@ -36,6 +38,8 @@ class ViT(nn.Module):
 
 		self.mlp = nn.Linear(self.d_model, config.out_d)
 
+		self.is_quadrangle_attention = config.attention == QuadrangleAttention
+
 	def forward(self, images):
 		bsz = images.size(0)
 
@@ -47,10 +51,19 @@ class ViT(nn.Module):
 		pos_embed = self.pos_embed.repeat(bsz, 1, 1)
 		out = tokens + pos_embed
 
+		total_reg_loss = 0.0
 		for block in self.blocks:
-			out = block(out)
+			if self.is_quadrangle_attention:
+				out, regularization_loss = block(out, self.h_grid, self.w_grid)
+				total_reg_loss += regularization_loss
+			else:
+				out, _ = block(out)
 
 		# [CLS] token
 		out = out[:, 0]
 
-		return self.mlp(out)
+		output = self.mlp(out)
+		if self.is_quadrangle_attention:
+			return output, total_reg_loss
+		else:
+			return output

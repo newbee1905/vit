@@ -138,7 +138,7 @@ def load_teacher_model(path, model_name, num_classes, device):
 	config = checkpoint.get('config')
 	
 	model = get_model(model_name, config, num_classes=num_classes)
-	model.load_state_dict(checkpoint['best_model_state_dict'])
+	model.load_state_dict(checkpoint['model_state_dict'])
 	model.to(device)
 	model.eval()
 	
