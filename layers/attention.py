@@ -268,11 +268,11 @@ class QuadrangleAttention(nn.Module):
 		v_sampled = rearrange(v_sampled, '(b h) n_win d wh ww -> b h (n_win wh ww) d', b=bsz, h=self.n_head)
 		
 		if self.use_qk_norm:
-			query = self.q_norm(query)
+			q = self.q_norm(q)
 			k_sampled = self.k_norm(k_sampled)
 
 		attn_output = F.scaled_dot_product_attention(
-			query, k_sampled, v_sampled,
+			q, k_sampled, v_sampled,
 			dropout_p=self.dropout.p if self.training else 0.0,
 			is_causal=False,
 		)
