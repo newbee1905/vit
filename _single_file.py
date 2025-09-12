@@ -534,18 +534,28 @@ class CvT(nn.Module):
 
 # config.py
 class ViTConfig:
-	d_model=512
-	d_ff=2048
+	d_model=192
+	d_ff=768
+
 	n_head=16
 	n_block=4
-	n_patch=8
-	out_d = 200
+	# n_patch=16
+	n_patch=4
+	out_d = 100
+
+	attention=QuadrangleAttention
+	window_size=[2, 2]
 	norm=RMSNorm
 	activation="swiglu"
-	dropout=0.1
+
+	dropout=0.3
+
 	use_layer_scale=True
 	use_qk_norm=False
-	chw=(3, 64, 64)
+
+	# chw=(3, 224, 224)
+	chw=(3, 32, 32)
+
 	kernel_size=16
 	stride=16
 

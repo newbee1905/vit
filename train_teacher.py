@@ -76,11 +76,9 @@ model = get_model("resnet32", num_classes=args.num_classes).to(device)
 # --- Phase 1: Transfer Learning (Training Classifier Head) ---
 print("\n--- Phase 1: Transfer Learning (Training Classifier Head) ---")
 
-# Freeze all layers
 for param in model.parameters():
 	param.requires_grad = False
 
-# Unfreeze and initialize the new classifier head
 for param in model.fc.parameters():
 	param.requires_grad = True
 
@@ -93,7 +91,6 @@ print(f"\nModel: RESNET32")
 print(f"Total parameters: {total_params:,}")
 print(f"Trainable parameters (head only): {trainable_params:,}")
 
-# Optimizer for the classifier head only
 optimizer = AdamW(model.fc.parameters(), lr=args.lr)
 criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.transfer_epochs)
